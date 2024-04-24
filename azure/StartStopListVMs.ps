@@ -1,52 +1,47 @@
-<#
-    .DESCRIPTION
-        Start or stop VMs by List using AzAccount -Identity
+Workflow Stop-Start-AzureVM 
+{ 
+    Param 
+    (    
+        [Parameter(Mandatory=$true)][ValidateNotNullOrEmpty()] 
+        [String] 
+        $AzureSubscriptionId, 
+        [Parameter(Mandatory=$true)][ValidateNotNullOrEmpty()] 
+        [String] 
+        $AzureVMList, 
+        [Parameter(Mandatory=$true)][ValidateSet("Start","Stop")] 
+        [String] 
+        $Action 
+    ) 
+     
+    Connect-AzAccount -Identity
+    Select-AzureRmSubscription -SubscriptionId $AzureSubscriptionId 
+ 
+    $AzureVMs = $AzureVMList.Split(",") 
+    [System.Collections.ArrayList]$AzureVMsToHandle = $AzureVMs 
 
-    .NOTES
-        AUTHOR: Carlos Stange
-        LASTEDIT: Apr 4, 2024
-#>
-
-workflow StartStopVMByTag {
-    param (
-        [Parameter(Mandatory=$true)][ValidateNotNullOrEmpty()]
-        [String]$SubscriptionID,
-		
-        [Parameter(Mandatory=$true)][ValidateNotNullOrEmpty()]
-        [String]$VMList,
-
-    		[Parameter(Mandatory=$true)][ValidateSet("Start","Stop")]
-    		[String]$VMAction,
-    )
-
-    try
-    {
-        "Logging..."
-        Connect-AzAccount -Identity
-    }
-    catch {
-        Write-Error -Message $_.Exception
-        throw $_.Exception
-    }
-
-	  Set-AzContext -SubscriptionId $SubscriptionID
-	
-    [System.Collections.ArrayList]$AzureVMsToHandle = $VMList.Split(",") 
-
+ 
     foreach($AzureVM in $AzureVMsToHandle) 
     { 
         if(!(Get-AzureRmVM | ? {$_.Name -eq $AzureVM})) 
         { 
-			    Write-Output (" [$AzureVM] - Not exist!!")
-        } else {
-			    if($VMAction -eq "Stop") {
-				    Write-Output (" [$AzureVM] - Stopping")
-				    Get-AzureRmVM | ? {$_.Name -eq $AzureVM} | Stop-AzureRmVM -Force 
-			    } 
-			    if($VMAction -eq "Start") {
-				    Write-Output (" [$AzureVM] - Starting")
-				    Get-AzureRmVM | ? {$_.Name -eq $AzureVM} | Start-AzureRmVM 
-			    } 
-		  }		
-    }
+            throw " AzureVM : [$AzureVM] - Does not exist! - Check your inputs " 
+        } 
+    } 
+ 
+    if($Action -eq "Stop") 
+    { 
+        Write-Output "Stopping VMs"; 
+        foreach -parallel ($AzureVM in $AzureVMsToHandle) 
+        { 
+            Get-AzureRmVM | ? {$_.Name -eq $AzureVM} | Stop-AzureRmVM -Force 
+        } 
+    } 
+    else 
+    { 
+        Write-Output "Starting VMs"; 
+        foreach -parallel ($AzureVM in $AzureVMsToHandle) 
+        { 
+            Get-AzureRmVM | ? {$_.Name -eq $AzureVM} | Start-AzureRmVM 
+        } 
+    } 
 }
